@@ -1,0 +1,1664 @@
+<!DOCTYPE html>
+<html lang="ur" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>ڈریگن فلائی فلائٹ سمیولیٹر | Dragonfly Biomimetic Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --primary: #00f59b;
+  --primary-glow: rgba(0, 245, 155, 0.45);
+  --primary-dark: #064e3b;
+  --accent-cyan: #00d2ff;
+  --bg-dark: #04120c;
+  --panel-bg: rgba(6, 26, 17, 0.82);
+  --panel-border: rgba(0, 245, 155, 0.22);
+  --panel-border-bright: rgba(0, 245, 155, 0.6);
+  --text-main: #e6fff4;
+  --text-muted: #80bfa1;
+  --white: #ffffff;
+  --danger: #ff4757;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--bg-dark);
+  color: var(--text-main);
+  font-family: "Noto Naskh Arabic", "Outfit", Tahoma, sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body {
+  display: flex;
+  position: relative;
+}
+
+/* 3D Canvas Container */
+#c {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  position: relative;
+  touch-action: none;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 30%, #164e38 0%, #03130c 100%);
+}
+
+#c canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Viewport selector buttons in main view */
+.viewport-pills {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 8px;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+.vl {
+  box-sizing: border-box;
+  background: rgba(4, 20, 13, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  color: var(--text-muted);
+  font: 700 12px "Noto Naskh Arabic", "Outfit", sans-serif;
+  cursor: pointer;
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+}
+
+.vl:hover {
+  border-color: var(--primary);
+  color: var(--white);
+  box-shadow: 0 0 15px var(--primary-glow);
+  transform: translateY(-1px);
+}
+
+.vl.active {
+  background: linear-gradient(135deg, rgba(0, 245, 155, 0.25), rgba(6, 78, 59, 0.6));
+  border-color: var(--primary);
+  color: var(--primary);
+  box-shadow: 0 0 18px var(--primary-glow);
+}
+
+/* Secondary Multi-View Camera PiP overlays */
+.pip-view {
+  position: absolute;
+  border-radius: 12px;
+  border: 1.5px solid rgba(0, 245, 155, 0.4);
+  background: rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  z-index: 8;
+}
+
+.pip-view:hover {
+  transform: scale(1.04);
+  border-color: var(--primary);
+  box-shadow: 0 0 20px var(--primary-glow);
+}
+
+.pip-label {
+  position: absolute;
+  bottom: 4px;
+  right: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.65);
+  padding: 2px 8px;
+  border-radius: 6px;
+  pointer-events: none;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+}
+
+/* Glassmorphism Telemetry HUD */
+#hud-panel {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  background: var(--panel-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--panel-border);
+  border-radius: 16px;
+  padding: 14px 18px;
+  font-size: 13px;
+  min-width: 260px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), inset 0 0 16px rgba(0, 245, 155, 0.05);
+  z-index: 10;
+  pointer-events: auto;
+  transition: opacity 0.3s ease;
+}
+
+.hud-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(0, 245, 155, 0.2);
+}
+
+.hud-title {
+  font-weight: 700;
+  color: var(--primary);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hud-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 0 8px var(--primary);
+  animation: pulse 1.8s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.9); opacity: 0.6; }
+  50% { transform: scale(1.3); opacity: 1; box-shadow: 0 0 14px var(--primary); }
+  100% { transform: scale(0.9); opacity: 0.6; }
+}
+
+.hud-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 14px;
+  margin-top: 6px;
+}
+
+.hud-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.hud-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.hud-val {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  font-family: "Outfit", sans-serif;
+  letter-spacing: 0.5px;
+}
+
+.hud-val.highlight {
+  color: var(--primary);
+  text-shadow: 0 0 8px var(--primary-glow);
+}
+
+/* Wing Oscilloscope Canvas inside HUD */
+#oscilloscope {
+  width: 100%;
+  height: 38px;
+  margin-top: 10px;
+  background: rgba(0, 15, 8, 0.7);
+  border-radius: 8px;
+  border: 1px solid rgba(0, 245, 155, 0.2);
+  display: block;
+}
+
+/* Target Tracker overlay for STMD Prey Mode */
+#target-reticle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 110px;
+  height: 110px;
+  pointer-events: none;
+  display: none;
+  z-index: 9;
+}
+
+.reticle-ring {
+  width: 100%;
+  height: 100%;
+  border: 2px dashed var(--primary);
+  border-radius: 50%;
+  animation: rotateReticle 10s linear infinite;
+  box-shadow: 0 0 15px var(--primary-glow);
+}
+
+@keyframes rotateReticle {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.reticle-cross {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent-cyan);
+  box-shadow: 0 0 10px var(--accent-cyan);
+}
+
+/* Audio & Sidebar Toggle Header */
+#top-bar {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  gap: 8px;
+  z-index: 10;
+}
+
+.action-btn {
+  background: var(--panel-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--panel-border);
+  color: var(--white);
+  border-radius: 20px;
+  padding: 8px 16px;
+  font: 700 13px "Noto Naskh Arabic", "Outfit", sans-serif;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
+
+.action-btn:hover {
+  background: rgba(0, 245, 155, 0.2);
+  border-color: var(--primary);
+  box-shadow: 0 0 16px var(--primary-glow);
+}
+
+.action-btn.active {
+  background: var(--primary);
+  color: #022315;
+  border-color: var(--primary);
+  box-shadow: 0 0 20px var(--primary-glow);
+}
+
+/* On-screen Flight Touch Pad for Mobile */
+#pad {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  display: none;
+  grid-template: repeat(2, 56px) / repeat(3, 56px);
+  gap: 8px;
+  z-index: 10;
+}
+
+#alt {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  display: none;
+  gap: 8px;
+  flex-direction: column;
+  z-index: 10;
+}
+
+.tb {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  border: 1.5px solid var(--panel-border);
+  background: var(--panel-bg);
+  backdrop-filter: blur(8px);
+  color: var(--primary);
+  font: 700 22px inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  touch-action: none;
+  transition: all 0.15s ease;
+}
+
+.tb:active {
+  background: var(--primary);
+  color: #031c11;
+  border-color: var(--primary);
+  transform: scale(0.94);
+  box-shadow: 0 0 16px var(--primary-glow);
+}
+
+/* Sidebar Styling - Luxury Frosted Emerald */
+aside {
+  width: 370px;
+  height: 100%;
+  overflow-y: auto;
+  background: rgba(3, 18, 12, 0.92);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-inline-end: 1px solid var(--panel-border);
+  padding: 20px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  z-index: 20;
+  box-shadow: 8px 0 32px rgba(0, 0, 0, 0.6);
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+aside.hide {
+  transform: translateX(100%);
+  margin-inline-end: -370px;
+}
+
+/* Scrollbar */
+aside::-webkit-scrollbar { width: 5px; }
+aside::-webkit-scrollbar-track { background: transparent; }
+aside::-webkit-scrollbar-thumb { background: rgba(0, 245, 155, 0.25); border-radius: 4px; }
+aside::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+
+h1 {
+  font-size: 21px;
+  margin: 0;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+h1 span {
+  color: var(--primary);
+  text-shadow: 0 0 12px var(--primary-glow);
+}
+
+h2 {
+  font-size: 14px;
+  letter-spacing: 0.5px;
+  margin: 10px 0 6px;
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid rgba(0, 245, 155, 0.2);
+  padding-bottom: 4px;
+}
+
+p.subtitle {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mode-btn {
+  flex: 1;
+  font: 600 13px "Noto Naskh Arabic", "Outfit", sans-serif;
+  color: var(--text-muted);
+  background: rgba(0, 245, 155, 0.06);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.25s ease;
+}
+
+.mode-btn:hover {
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.mode-btn.on {
+  background: linear-gradient(135deg, rgba(0, 245, 155, 0.2), rgba(6, 78, 59, 0.5));
+  border-color: var(--primary);
+  color: var(--primary);
+  font-weight: 700;
+  box-shadow: 0 0 16px var(--primary-glow);
+}
+
+.sl {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 10px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.sl span {
+  font-size: 13px;
+  color: var(--text-main);
+}
+
+.sl output {
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 13px;
+  direction: ltr;
+  font-family: "Outfit", monospace;
+}
+
+.sl input[type="range"] {
+  grid-column: 1 / 3;
+  width: 100%;
+  accent-color: var(--primary);
+  background: rgba(0, 245, 155, 0.15);
+  height: 5px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.ck-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  background: rgba(0, 245, 155, 0.04);
+  margin-bottom: 4px;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+  font-size: 13px;
+}
+
+.ck-label:hover {
+  background: rgba(0, 245, 155, 0.1);
+  border-color: rgba(0, 245, 155, 0.2);
+}
+
+.ck-label input {
+  accent-color: var(--primary);
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.kb-box {
+  background: rgba(0, 30, 18, 0.6);
+  border: 1px solid rgba(0, 245, 155, 0.15);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 12.5px;
+  line-height: 1.8;
+  color: var(--text-muted);
+}
+
+.kb-key {
+  display: inline-block;
+  background: rgba(0, 245, 155, 0.15);
+  border: 1px solid rgba(0, 245, 155, 0.3);
+  color: var(--primary);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: "Outfit", monospace;
+  font-size: 11px;
+}
+
+details {
+  background: rgba(0, 245, 155, 0.04);
+  border: 1px solid rgba(0, 245, 155, 0.15);
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin-top: 4px;
+}
+
+summary {
+  cursor: pointer;
+  color: var(--primary);
+  font-weight: 700;
+  outline: none;
+  font-size: 13px;
+}
+
+textarea {
+  width: 100%;
+  height: 90px;
+  box-sizing: border-box;
+  background: rgba(0, 15, 8, 0.85);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  direction: ltr;
+  color: #8be4b9;
+  font: 11px/1.5 monospace;
+  padding: 8px;
+  resize: vertical;
+  margin-top: 6px;
+}
+
+.copy-btn {
+  font: 600 12px "Noto Naskh Arabic", sans-serif;
+  color: var(--primary);
+  background: rgba(0, 245, 155, 0.12);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 6px 14px;
+  cursor: pointer;
+  margin-top: 6px;
+  transition: all 0.2s ease;
+}
+
+.copy-btn:hover {
+  background: var(--primary);
+  color: #031e11;
+}
+
+/* Mobile Responsiveness */
+@media (hover: none), (max-width: 800px) {
+  #pad, #alt { display: grid; }
+  #alt { display: flex; }
+  #hud-panel { display: none; }
+  aside {
+    position: fixed;
+    inset: auto 0 0 0;
+    width: auto;
+    height: 55vh;
+    z-index: 30;
+    border-top: 2px solid var(--primary);
+    border-radius: 20px 20px 0 0;
+  }
+}
+</style>
+</head>
+<body>
+
+<div id="c">
+  <!-- Top Bar: Settings & Audio Toggle -->
+  <div id="top-bar">
+    <button class="action-btn" id="tg">⚙ کنٹرولز پینل</button>
+    <button class="action-btn" id="audio-toggle">🔊 آواز: فعال</button>
+  </div>
+
+  <!-- Camera Viewport Switcher Pills -->
+  <div class="viewport-pills" id="cam-pills">
+    <button class="vl active" data-v="0">👁 پیچھے سے (Follow)</button>
+    <button class="vl" data-v="1">🎯 مرکب آنکھ (Eye View)</button>
+    <button class="vl" data-v="2">🛰 اوپر سے (Top-Down)</button>
+    <button class="vl" data-v="3">📐 پہلو کا منظر (Side Profile)</button>
+  </div>
+
+  <!-- Target Reticle for STMD Hunting -->
+  <div id="target-reticle">
+    <div class="reticle-ring"></div>
+    <div class="reticle-cross"></div>
+  </div>
+
+  <!-- Glassmorphism Telemetry HUD -->
+  <div id="hud-panel">
+    <div class="hud-header">
+      <div class="hud-title">
+        <span class="hud-pulse"></span>
+        <span>ٹیلی میٹری ڈیٹا (Telemetry)</span>
+      </div>
+      <span id="hud-cam-name" style="font-size:11px; color:var(--text-muted)">پیچھے سے</span>
+    </div>
+    <div class="hud-grid">
+      <div class="hud-item">
+        <span class="hud-label">پرواز کی رفتار (Airspeed)</span>
+        <span class="hud-val highlight" id="hud-spd">0.0 m/s</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">پروں کی فریکوئنسی (Flap)</span>
+        <span class="hud-val" id="hud-hz">28.0 Hz</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">بلندی (Altitude)</span>
+        <span class="hud-val" id="hud-alt">2.0 m</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">ایرولفٹ انڈیکس (Lift)</span>
+        <span class="hud-val highlight" id="hud-lift">100%</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">موڈ (Flight Mode)</span>
+        <span class="hud-val" id="hud-mode" style="font-size:13px">دستی پرواز</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">STMD نیورل اسٹیٹس</span>
+        <span class="hud-val highlight" id="hud-stmd" style="font-size:13px">اسکیننگ...</span>
+      </div>
+    </div>
+    <!-- 4-Channel Wing Kinematics Oscilloscope -->
+    <canvas id="oscilloscope" width="220" height="38"></canvas>
+  </div>
+
+  <!-- Touch Controls (Mobile) -->
+  <div id="pad">
+    <span></span><button class="tb" data-h="fwd:1">▲</button><span></span>
+    <button class="tb" data-h="turn:1">◀</button><button class="tb" data-h="fwd:-1">▼</button><button class="tb" data-h="turn:-1">▶</button>
+  </div>
+  <div id="alt">
+    <button class="tb" data-h="climb:1">⤒</button>
+    <button class="tb" data-h="climb:-1">⤓</button>
+  </div>
+</div>
+
+<!-- Controls Sidebar -->
+<aside id="as">
+  <div>
+    <h1><span>❖</span> ڈریگن فلائی سمیولیٹر</h1>
+    <p class="subtitle">بائیو مکینیکل 3D پرواز و سینسر نیورل سمیولیشن</p>
+  </div>
+
+  <h2>پرواز کا موڈ (Flight Mode)</h2>
+  <div class="row" id="modes">
+    <button class="mode-btn on" data-m="free">🎮 دستی پرواز (Manual)</button>
+    <button class="mode-btn" data-m="prey">🎯 خودکار شکار (STMD Hunt)</button>
+  </div>
+
+  <h2>کی بورڈ نیویگیشن</h2>
+  <div class="kb-box">
+    <span class="kb-key">▲</span> / <span class="kb-key">▼</span> آگے / پیچھے جھکاؤ<br>
+    <span class="kb-key">◀</span> / <span class="kb-key">▶</span> یا <span class="kb-key">A</span> / <span class="kb-key">D</span> بائیں / دائیں موڑ (Yaw)<br>
+    <span class="kb-key">Space</span> یا <span class="kb-key">W</span> اوپر چڑھنا (Climb)<br>
+    <span class="kb-key">Shift</span> یا <span class="kb-key">S</span> نیچے غوطہ (Dive)<br>
+    ماؤس گھمائیں: 360° کیمرا · ماؤس وہیل: زوم
+  </div>
+
+  <h2>پروں کی بائیو مکینکس (Wing Kinematics)</h2>
+  <div id="g1"></div>
+
+  <details>
+    <summary>ہر پر کا آزادانہ کنٹرول (Independent Wings)</summary>
+    <div id="g2" style="margin-top:8px"></div>
+  </details>
+
+  <h2>سینسرز اور نیورل رینڈرنگ</h2>
+  <label class="ck-label"><input type="checkbox" id="k1" checked> <span>مرکب آنکھیں (STMD گلو و فوکس)</span></label>
+  <label class="ck-label"><input type="checkbox" id="k2" checked> <span>سادہ آنکھیں (3x Ocelli افقی سینسر)</span></label>
+  <label class="ck-label"><input type="checkbox" id="k3" checked> <span>پروں کے میکانو سینسر (Campaniform Sensilla)</span></label>
+  <label class="ck-label"><input type="checkbox" id="k4"> <span>بصری مخروط (Visual Detection Cone)</span></label>
+
+  <details>
+    <summary>ماڈل کا فوٹو ریئلسٹک پرامپٹ</summary>
+    <textarea id="pr" readonly></textarea>
+    <button class="copy-btn" id="cp">پرامپٹ کاپی کریں</button>
+  </details>
+</aside>
+
+<!-- Three.js r128 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script>
+// ==========================================
+// 1. Core Utilities & Constants
+// ==========================================
+const $ = s => document.querySelector(s);
+const cv = $('#c');
+const PI = Math.PI;
+const cl = (v, a, b) => Math.max(a, Math.min(b, v));
+const wr = a => Math.atan2(Math.sin(a), Math.cos(a));
+const rnd = (a, b) => a + Math.random() * (b - a);
+
+const PROMPT = "Photorealistic biomimetic Emperor Dragonfly (Anax imperator) in 3D flight. Metallic emerald-turquoise iridescence chitin cuticle, holoptic compound eyes with hexagonal ommatidia micro-facets and pseudopupil, three glassy crystal ocelli, 4 ultra-delicate transparent wings with authentic odonate venation, amber pterostigma, micro campaniform sensilla dots. Volumetric sunlight, soft water ripples, shallow depth of field, 8k macro nature realism.";
+$('#pr').value = PROMPT;
+$('#cp').onclick = () => {
+  if (navigator.clipboard) navigator.clipboard.writeText(PROMPT).catch(()=>{});
+  $('#pr').select();
+  $('#cp').textContent = 'کاپی ہو گیا! ✓';
+  setTimeout(() => $('#cp').textContent = 'پرامپٹ کاپی کریں', 2000);
+};
+
+// ==========================================
+// 2. Procedural Textures Generation
+// ==========================================
+
+// Realistic Wing Venation Texture with Odonate Costa, Pterostigma & Cross-veins
+function generateWingTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1024;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+
+  // Translucent chitin membrane gradient
+  const grad = ctx.createLinearGradient(0, 0, 1024, 256);
+  grad.addColorStop(0, 'rgba(235, 255, 245, 0.55)');
+  grad.addColorStop(0.5, 'rgba(215, 250, 235, 0.42)');
+  grad.addColorStop(1, 'rgba(240, 255, 250, 0.48)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 1024, 256);
+
+  // Subtle thin-film interference sheen
+  const sheen = ctx.createLinearGradient(0, 50, 1024, 200);
+  sheen.addColorStop(0.2, 'rgba(120, 255, 210, 0.08)');
+  sheen.addColorStop(0.5, 'rgba(255, 180, 255, 0.07)');
+  sheen.addColorStop(0.8, 'rgba(140, 220, 255, 0.09)');
+  ctx.fillStyle = sheen;
+  ctx.fillRect(0, 0, 1024, 256);
+
+  // Main Longitudinal Veins (Costa, Subcosta, Radius, Media, Cubitus)
+  ctx.strokeStyle = '#053620';
+  ctx.lineWidth = 3.5;
+  ctx.beginPath();
+  // Costa (Leading edge)
+  ctx.moveTo(0, 4);
+  ctx.bezierCurveTo(300, 3, 700, 12, 1024, 45);
+  ctx.stroke();
+
+  // Subcosta & Radius
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.moveTo(0, 15);
+  ctx.bezierCurveTo(300, 25, 600, 40, 1024, 52);
+  ctx.stroke();
+
+  // Media & Cubitus
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(0, 40);
+  ctx.bezierCurveTo(350, 65, 750, 100, 1020, 130);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(0, 70);
+  ctx.bezierCurveTo(300, 120, 650, 180, 950, 220);
+  ctx.stroke();
+
+  // Pterostigma (Dense dark stabilizing cell near wing tip)
+  ctx.fillStyle = '#062917';
+  ctx.fillRect(780, 10, 95, 22);
+  ctx.strokeStyle = '#d4fff0';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(780, 10, 95, 22);
+
+  // Intricate Odonate Cross-vein Net (Hexagonal/Rectangular Cells)
+  ctx.strokeStyle = 'rgba(7, 58, 35, 0.55)';
+  ctx.lineWidth = 1.0;
+  for (let x = 30; x < 1000; x += 18) {
+    const yTop = 15 + Math.sin(x * 0.003) * 15;
+    const yBot = 160 + Math.sin(x * 0.004) * 50;
+    ctx.beginPath();
+    ctx.moveTo(x, yTop);
+    ctx.lineTo(x + Math.sin(x) * 4, yBot);
+    ctx.stroke();
+
+    // Horizontal connectors
+    for (let y = yTop + 14; y < yBot; y += 16) {
+      if (Math.random() > 0.25) {
+        ctx.beginPath();
+        ctx.moveTo(x - 9, y);
+        ctx.lineTo(x + 9, y + 2);
+        ctx.stroke();
+      }
+    }
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  return texture;
+}
+
+// Compound Eye Ommatidia Hexagonal Pattern Texture
+function generateEyeTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+
+  // Emerald metallic base gradient
+  const bg = ctx.createRadialGradient(256, 256, 40, 256, 256, 256);
+  bg.addColorStop(0, '#10c476');
+  bg.addColorStop(0.6, '#0b7949');
+  bg.addColorStop(1, '#032e1a');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, 512, 512);
+
+  // Hexagonal Ommatidia micro-facets
+  ctx.strokeStyle = 'rgba(0, 255, 140, 0.22)';
+  ctx.lineWidth = 1;
+  const s = 10, h = s * Math.sqrt(3);
+  for (let y = 0; y < 512 + h; y += h) {
+    for (let x = 0; x < 512 + s * 3; x += s * 3) {
+      ctx.beginPath();
+      for (let a = 0; a < 6; a++) {
+        const angle = a * PI / 3;
+        const px = x + s * Math.cos(angle);
+        const py = y + s * Math.sin(angle);
+        if (a === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.stroke();
+    }
+  }
+
+  // Pseudopupil dark optical center
+  const pupil = ctx.createRadialGradient(256, 256, 10, 256, 256, 80);
+  pupil.addColorStop(0, 'rgba(2, 20, 10, 0.85)');
+  pupil.addColorStop(1, 'rgba(2, 20, 10, 0)');
+  ctx.fillStyle = pupil;
+  ctx.beginPath();
+  ctx.arc(256, 256, 80, 0, PI * 2);
+  ctx.fill();
+
+  return new THREE.CanvasTexture(canvas);
+}
+
+// Water Pond Ripple Normal/Height Texture
+function generateWaterTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+
+  const grad = ctx.createRadialGradient(128, 128, 10, 128, 128, 128);
+  grad.addColorStop(0, 'rgba(0, 255, 180, 0.7)');
+  grad.addColorStop(0.7, 'rgba(4, 90, 60, 0.85)');
+  grad.addColorStop(1, 'rgba(2, 45, 30, 0.95)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 256, 256);
+
+  ctx.strokeStyle = 'rgba(200, 255, 235, 0.4)';
+  ctx.lineWidth = 2;
+  for (let r = 20; r < 120; r += 18) {
+    ctx.beginPath();
+    ctx.arc(128, 128, r, 0, PI * 2);
+    ctx.stroke();
+  }
+  return new THREE.CanvasTexture(canvas);
+}
+
+// ==========================================
+// 3. WebGL Renderer & Scene Initialization
+// ==========================================
+const R = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+R.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+R.setSize(cv.clientWidth, cv.clientHeight);
+R.shadowMap.enabled = true;
+R.shadowMap.type = THREE.PCFSoftShadowMap;
+R.toneMapping = THREE.ACESFilmicToneMapping;
+R.toneMappingExposure = 1.15;
+cv.insertBefore(R.domElement, cv.firstChild);
+
+const S = new THREE.Scene();
+const FOG_COLOR = 0x071e14;
+S.background = new THREE.Color(FOG_COLOR);
+S.fog = new THREE.FogExp2(FOG_COLOR, 0.022);
+
+// Ambient & Directional Sunlight with Soft Shadows
+const hemiLight = new THREE.HemisphereLight(0xcffff0, 0x052416, 0.85);
+S.add(hemiLight);
+
+const sunLight = new THREE.DirectionalLight(0xfffff0, 1.4);
+sunLight.position.set(22, 38, 18);
+sunLight.castShadow = true;
+sunLight.shadow.mapSize.width = 2048;
+sunLight.shadow.mapSize.height = 2048;
+sunLight.shadow.camera.near = 1;
+sunLight.shadow.camera.far = 100;
+sunLight.shadow.camera.left = -30;
+sunLight.shadow.camera.right = 30;
+sunLight.shadow.camera.top = 30;
+sunLight.shadow.camera.bottom = -30;
+sunLight.shadow.bias = -0.0006;
+S.add(sunLight);
+
+// Sky Dome with Sun Glow
+const skyGeo = new THREE.SphereGeometry(90, 32, 24);
+const skyMat = new THREE.MeshBasicMaterial({
+  color: 0x0b3221,
+  side: THREE.BackSide
+});
+const skyDome = new THREE.Mesh(skyGeo, skyMat);
+S.add(skyDome);
+
+// Ground Plane with Lush Green Grass Texture & Grid Accents
+const groundGeo = new THREE.CircleGeometry(75, 64);
+groundGeo.rotateX(-PI / 2);
+const groundMat = new THREE.MeshStandardMaterial({
+  color: 0x072b1a,
+  roughness: 0.85,
+  metalness: 0.1
+});
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.receiveShadow = true;
+S.add(ground);
+
+// Stylized subtle bio-grid
+const grid = new THREE.GridHelper(120, 60, 0x00f59b, 0x09482c);
+grid.position.y = 0.015;
+S.add(grid);
+
+// Beautiful Water Pond with Reflections
+const pondTex = generateWaterTexture();
+const pondGeo = new THREE.CircleGeometry(9, 48);
+pondGeo.rotateX(-PI / 2);
+const pondMat = new THREE.MeshStandardMaterial({
+  map: pondTex,
+  color: 0x00f59b,
+  roughness: 0.1,
+  metalness: 0.7,
+  transparent: true,
+  opacity: 0.85
+});
+const pond = new THREE.Mesh(pondGeo, pondMat);
+pond.position.set(12, 0.03, -12);
+pond.receiveShadow = true;
+S.add(pond);
+
+// Floating Pollen / Bioluminescent Dust Motes (180 particles)
+const moteGeo = new THREE.BufferGeometry();
+const moteCount = 180;
+const motePos = new Float32Array(moteCount * 3);
+for (let i = 0; i < moteCount * 3; i += 3) {
+  motePos[i] = rnd(-40, 40);
+  motePos[i + 1] = rnd(0.5, 12);
+  motePos[i + 2] = rnd(-40, 40);
+}
+moteGeo.setAttribute('position', new THREE.BufferAttribute(motePos, 3));
+const moteMat = new THREE.PointsMaterial({
+  color: 0x66ffb2,
+  size: 0.18,
+  transparent: true,
+  opacity: 0.75,
+  blending: THREE.AdditiveBlending
+});
+const motes = new THREE.Points(moteGeo, moteMat);
+S.add(motes);
+
+// Meadow Reeds, Cattails & Flora
+const reedMat1 = new THREE.MeshStandardMaterial({ color: 0x0f603c, roughness: 0.6 });
+const reedMat2 = new THREE.MeshStandardMaterial({ color: 0x22c57e, roughness: 0.5 });
+const flowerMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3, emissive: 0x113322 });
+
+for (let i = 0; i < 90; i++) {
+  const angle = rnd(0, 2 * PI);
+  const r = rnd(8, 55);
+  const h = rnd(2.2, 5.5);
+  const g = new THREE.Group();
+  g.position.set(Math.cos(angle) * r, 0, Math.sin(angle) * r);
+
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.07, h, 6), reedMat1);
+  stem.position.y = h / 2;
+  stem.castShadow = true;
+  g.add(stem);
+
+  const topMesh = new THREE.Mesh(
+    i % 3 === 0 ? new THREE.SphereGeometry(0.16, 8, 8) : new THREE.ConeGeometry(0.25, 0.9, 6),
+    i % 3 === 0 ? flowerMat : reedMat2
+  );
+  topMesh.position.y = h;
+  topMesh.castShadow = true;
+  g.add(topMesh);
+  S.add(g);
+}
+
+// ==========================================
+// 4. Photorealistic 3D Dragonfly Model (Anax imperator)
+// ==========================================
+const D = new THREE.Group(); // Dragonfly Root
+const H = new THREE.Group(); // Head Group
+D.rotation.order = 'YXZ';
+D.position.set(0, 2.2, 0);
+S.add(D);
+D.add(H);
+
+// High-Fidelity Chitin Materials
+const wingTex = generateWingTexture();
+const eyeTex = generateEyeTexture();
+
+const chitinEmerald = new THREE.MeshStandardMaterial({
+  color: 0x00f59b,
+  roughness: 0.28,
+  metalness: 0.65,
+  emissive: 0x033d25
+});
+
+const chitinDark = new THREE.MeshStandardMaterial({
+  color: 0x042416,
+  roughness: 0.4,
+  metalness: 0.4
+});
+
+const chitinIvory = new THREE.MeshStandardMaterial({
+  color: 0xe6fff4,
+  roughness: 0.35,
+  metalness: 0.2
+});
+
+const eyeMaterial = new THREE.MeshStandardMaterial({
+  map: eyeTex,
+  color: 0x22ff99,
+  roughness: 0.15,
+  metalness: 0.8,
+  emissive: 0x024527,
+  emissiveIntensity: 0.8
+});
+
+const ocelliMaterial = new THREE.MeshStandardMaterial({
+  color: 0xffffff,
+  roughness: 0.05,
+  metalness: 0.9,
+  emissive: 0x88ffcc,
+  emissiveIntensity: 0.9
+});
+
+const wingMat = new THREE.MeshStandardMaterial({
+  map: wingTex,
+  color: 0xffffff,
+  roughness: 0.1,
+  metalness: 0.2,
+  transparent: true,
+  opacity: 0.82,
+  side: THREE.DoubleSide,
+  depthWrite: false
+});
+
+// Helper for adding meshes with shadow
+function addMesh(geo, mat, x, y, z, parent = D, cast = true) {
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set(x, y, z);
+  if (cast) m.castShadow = true;
+  m.receiveShadow = true;
+  parent.add(m);
+  return m;
+}
+
+// A. Thorax (Synthorax - Aerodynamic Flight Engine)
+const thorax = addMesh(new THREE.SphereGeometry(1, 28, 20), chitinEmerald, 0, 0.12, 0.32);
+thorax.scale.set(0.34, 0.32, 0.48);
+
+// Thorax stripes (Antehumeral dark and cyan bands)
+const stripe = addMesh(new THREE.TorusGeometry(0.32, 0.04, 8, 24), chitinDark, 0, 0.12, 0.3);
+stripe.rotation.x = PI / 3;
+
+// B. Head & Holoptic Eyes
+const headBase = addMesh(new THREE.SphereGeometry(0.28, 24, 18), chitinDark, 0, 0.18, 0.82, H);
+headBase.scale.set(1.1, 0.9, 0.95);
+
+// Huge Holoptic Compound Eyes
+const leftEye = addMesh(new THREE.SphereGeometry(0.24, 28, 24), eyeMaterial, 0.21, 0.26, 0.89, H);
+leftEye.scale.set(1.0, 1.15, 1.25);
+leftEye.rotation.set(-0.15, 0.3, -0.1);
+
+const rightEye = addMesh(new THREE.SphereGeometry(0.24, 28, 24), eyeMaterial, -0.21, 0.26, 0.89, H);
+rightEye.scale.set(1.0, 1.15, 1.25);
+rightEye.rotation.set(-0.15, -0.3, 0.1);
+
+// Triad of Crystal Ocelli (Median and Two Lateral)
+addMesh(new THREE.SphereGeometry(0.045, 16, 12), ocelliMaterial, 0, 0.44, 0.94, H);
+addMesh(new THREE.SphereGeometry(0.038, 16, 12), ocelliMaterial, 0.09, 0.41, 0.87, H);
+addMesh(new THREE.SphereGeometry(0.038, 16, 12), ocelliMaterial, -0.09, 0.41, 0.87, H);
+
+// Bristle Antennae
+[-0.08, 0.08].forEach(s => {
+  const ant = addMesh(new THREE.CylinderGeometry(0.008, 0.008, 0.38, 8), chitinDark, s, 0.44, 1.05, H);
+  ant.rotation.set(0.9, 0, s * 0.25);
+});
+
+// C. Segmented Slender Abdomen (Segments S1 to S10 with Turqoise/Ivory Bands)
+const abdomenSegments = [];
+for (let i = 0; i < 10; i++) {
+  const radius = 0.14 - 0.06 * (i / 9);
+  const segGeo = new THREE.CylinderGeometry(radius, radius * 0.94, 0.32, 16);
+  segGeo.rotateX(PI / 2);
+  const segMat = (i % 2 === 0) ? chitinEmerald : chitinIvory;
+  const seg = addMesh(segGeo, segMat, 0, 0.08 - i * 0.008, -0.16 - i * 0.3);
+  abdomenSegments.push(seg);
+}
+
+// Anal Appendages (Cerci at tip of abdomen S10)
+[-0.04, 0.04].forEach(s => {
+  const cercus = addMesh(new THREE.CylinderGeometry(0.015, 0.005, 0.35, 8), chitinDark, s, 0.02, -3.2);
+  cercus.rotation.set(-0.2, 0, s * 0.3);
+});
+
+// D. Spiny Basket Legs (Tucked under thorax during flight)
+for (let i = 0; i < 3; i++) {
+  [-1, 1].forEach(side => {
+    const legGeo = new THREE.CylinderGeometry(0.018, 0.012, 0.65, 8);
+    legGeo.translate(0, -0.32, 0);
+    const leg = addMesh(legGeo, chitinDark, side * 0.16, -0.1, 0.3 + (i - 1) * 0.16);
+    leg.rotation.set((i - 1) * 0.35, 0, side * 0.85);
+  });
+}
+
+// E. Visual Cone (STMD Detection Field)
+const coneGeo = new THREE.ConeGeometry(2.2, 4.2, 28, 1, true);
+coneGeo.rotateX(-PI / 2);
+const coneMat = new THREE.MeshBasicMaterial({
+  color: 0x00f59b,
+  transparent: true,
+  opacity: 0.12,
+  depthWrite: false,
+  side: THREE.DoubleSide
+});
+const visualCone = new THREE.Mesh(coneGeo, coneMat);
+visualCone.position.set(0, 0.2, 2.8);
+visualCone.visible = false;
+D.add(visualCone);
+
+// F. Dynamic Ground Shadow Disk
+const shadowDisk = new THREE.Mesh(
+  new THREE.CircleGeometry(0.9, 24).rotateX(-PI / 2),
+  new THREE.MeshBasicMaterial({ color: 0x02160d, transparent: true, opacity: 0.38, depthWrite: false })
+);
+shadowDisk.position.y = 0.035;
+S.add(shadowDisk);
+
+// G. 4 Independent Wings with Aero Camber & Mechanosensors
+function createWing(len, width, side, zPos) {
+  const shape = new THREE.Shape();
+  shape.absellipse(len / 2, 0, len / 2, width, 0, PI * 2, false);
+  const geo = new THREE.ShapeGeometry(shape, 36);
+
+  // Fix UV coordinates for seamless venation map
+  const p = geo.attributes.position;
+  const u = geo.attributes.uv;
+  for (let i = 0; i < p.count; i++) {
+    u.setXY(i, p.getX(i) / len, (p.getY(i) + width) / (2 * width));
+  }
+  geo.rotateX(-PI / 2);
+
+  // Pivot root
+  const pivot = new THREE.Group();
+  pivot.position.set(side * 0.18, 0.32, zPos);
+  D.add(pivot);
+
+  const innerGroup = new THREE.Group();
+  pivot.add(innerGroup);
+
+  const wingMesh = new THREE.Mesh(geo, wingMat);
+  wingMesh.scale.x = side;
+  wingMesh.castShadow = true;
+  innerGroup.add(wingMesh);
+
+  // Mechanosensor dots (Campaniform sensilla) along radial vein
+  const sensorMat = new THREE.MeshBasicMaterial({ color: 0x00f59b });
+  const sensorDots = [];
+  for (let k = 0; k < 7; k++) {
+    const dot = addMesh(new THREE.SphereGeometry(0.035, 10, 8), sensorMat, side * (0.28 + k * 0.3), 0.02, -width * 0.45, innerGroup, false);
+    sensorDots.push(dot);
+  }
+
+  return { pivot, innerGroup, side, sensorMat, sensorDots };
+}
+
+// 4 Wings: Fore-Left, Fore-Right, Hind-Left, Hind-Right
+const Wings = [
+  createWing(2.4, 0.32,  1, 0.46), // Fore Left
+  createWing(2.4, 0.32, -1, 0.46), // Fore Right
+  createWing(2.5, 0.40,  1, 0.12), // Hind Left
+  createWing(2.5, 0.40, -1, 0.12)  // Hind Right
+];
+
+// ==========================================
+// 5. STMD Target / Prey (Animated Mayfly / Midge)
+// ==========================================
+const preyGroup = new THREE.Group();
+const preyBody = new THREE.Mesh(
+  new THREE.SphereGeometry(0.18, 16, 12),
+  new THREE.MeshStandardMaterial({ color: 0xff3860, roughness: 0.3, emissive: 0xff1040, emissiveIntensity: 0.9 })
+);
+preyGroup.add(preyBody);
+
+// Prey Wings
+const preyWingL = new THREE.Mesh(
+  new THREE.PlaneGeometry(0.4, 0.18),
+  new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.75, side: THREE.DoubleSide })
+);
+preyWingL.position.set(0.2, 0.05, 0);
+preyGroup.add(preyWingL);
+
+const preyWingR = preyWingL.clone();
+preyWingR.position.set(-0.2, 0.05, 0);
+preyGroup.add(preyWingR);
+
+// Halo ring around target
+const halo = new THREE.Mesh(
+  new THREE.TorusGeometry(0.45, 0.025, 8, 28),
+  new THREE.MeshBasicMaterial({ color: 0x00f59b, transparent: true, opacity: 0.85 })
+);
+halo.rotation.x = PI / 2;
+preyGroup.add(halo);
+
+preyGroup.visible = false;
+S.add(preyGroup);
+
+// ==========================================
+// 6. Cameras & Viewports Configuration
+// ==========================================
+const followCam = new THREE.PerspectiveCamera(55, cv.clientWidth / cv.clientHeight, 0.1, 200);
+const eyeCam = new THREE.PerspectiveCamera(115, cv.clientWidth / cv.clientHeight, 0.05, 200);
+const topCam = new THREE.PerspectiveCamera(45, cv.clientWidth / cv.clientHeight, 0.1, 200);
+const sideCam = new THREE.PerspectiveCamera(45, cv.clientWidth / cv.clientHeight, 0.1, 200);
+
+eyeCam.position.set(0, 0.34, 1.08);
+eyeCam.rotation.y = PI;
+D.add(eyeCam);
+
+const Viewports = [
+  { cam: followCam, name: 'پیچھے سے (Follow Cam)' },
+  { cam: eyeCam,    name: 'مرکب آنکھ (Eye View)' },
+  { cam: topCam,    name: 'اوپر سے (Top-Down)' },
+  { cam: sideCam,   name: 'پہلو کا منظر (Side Profile)' }
+];
+let mainViewIdx = 0;
+
+// Setup Camera Viewport buttons in DOM
+const camPills = document.querySelectorAll('.vl');
+camPills.forEach((btn, idx) => {
+  btn.onclick = () => {
+    camPills.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    mainViewIdx = idx;
+    $('#hud-cam-name').textContent = Viewports[idx].name;
+  };
+});
+
+function resize() {
+  const w = cv.clientWidth;
+  const h = cv.clientHeight;
+  R.setSize(w, h);
+  Viewports.forEach(v => {
+    v.cam.aspect = w / h;
+    v.cam.updateProjectionMatrix();
+  });
+}
+window.addEventListener('resize', resize);
+
+// ==========================================
+// 7. Procedural Biomimetic Audio Synthesizer (Web Audio API)
+// ==========================================
+let audioCtx = null;
+let humOsc = null;
+let humGain = null;
+let isAudioEnabled = true;
+
+function initAudio() {
+  if (audioCtx) return;
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new AudioContext();
+    humOsc = audioCtx.createOscillator();
+    humGain = audioCtx.createGain();
+
+    humOsc.type = 'sawtooth';
+    humOsc.frequency.setValueAtTime(110, audioCtx.currentTime);
+
+    // Soft low-pass filter for organic wing flutter
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(380, audioCtx.currentTime);
+
+    humOsc.connect(filter);
+    filter.connect(humGain);
+    humGain.connect(audioCtx.destination);
+
+    humGain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+    humOsc.start();
+  } catch (e) {
+    console.warn("Web Audio not supported or blocked", e);
+  }
+}
+
+$('#audio-toggle').onclick = () => {
+  if (!audioCtx) initAudio();
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  isAudioEnabled = !isAudioEnabled;
+  if (humGain && audioCtx) {
+    humGain.gain.setTargetAtTime(isAudioEnabled ? 0.04 : 0.0, audioCtx.currentTime, 0.05);
+  }
+  $('#audio-toggle').textContent = isAudioEnabled ? '🔊 آواز: فعال' : '🔇 آواز: خاموش';
+  $('#audio-toggle').classList.toggle('active', isAudioEnabled);
+};
+
+// Start audio on first user touch / click
+window.addEventListener('pointerdown', () => { if (!audioCtx) initAudio(); }, { once: true });
+
+// ==========================================
+// 8. Flight Simulation State & Controls
+// ==========================================
+const state = {
+  mode: 'free',     // 'free' or 'prey'
+  f: 28,            // Natural dragonfly wing frequency (Hz: 20-40)
+  amp: 38,          // Stroke amplitude in degrees
+  hf: 90,           // Fore/Hind wing phase offset in degrees
+  slow: 1.0,        // Slow-motion factor
+  spd: 6.5,         // Max flight velocity (m/s)
+  yaw: 0,           // Heading (yaw angle)
+  pitch: 0,
+  roll: 0,
+  vel: 0,
+  ph: 0,            // Flapping phase accumulator
+  hits: 0,
+  det: false,
+  ph0: 0,
+  az: 0,
+  el: 0.28,
+  dist: 6.5,
+  cy: 0
+};
+
+// Wing Trims (Force % and Pitch Bias)
+const wingForce = [100, 100, 100, 100];
+const wingPitch = [0, 0, 0, 0];
+
+const input = { turn: 0, climb: 0, fwd: 0 };
+const smooth = { turn: 0, climb: 0 };
+const Keys = {};
+
+// Helper for UI sliders
+function createSlider(parent, label, min, max, val, step, callback) {
+  const wrap = document.createElement('label');
+  wrap.className = 'sl';
+  wrap.innerHTML = `<span>${label}</span><output>${val}</output><input type="range" min="${min}" max="${max}" step="${step}" value="${val}">`;
+  const inputEl = wrap.querySelector('input');
+  const outputEl = wrap.querySelector('output');
+  inputEl.oninput = () => {
+    outputEl.textContent = inputEl.value;
+    callback(+inputEl.value);
+  };
+  parent.appendChild(wrap);
+}
+
+// Populate Kinematics Sliders
+createSlider($('#g1'), 'پھڑپھڑانے کی رفتار (Hz)', 1, 40, 28, 1, v => state.f = v);
+createSlider($('#g1'), 'پروں کا زاویہ (Stroke Amplitude °)', 10, 75, 38, 1, v => state.amp = v);
+createSlider($('#g1'), 'اگلے اور پچھلے پر کا فیز (Phase °)', 0, 180, 90, 5, v => state.hf = v);
+createSlider($('#g1'), 'سلو موشن گتانک (Slow-Mo)', 0.05, 1, 1, 0.05, v => state.slow = v);
+createSlider($('#g1'), 'زیادہ سے زیادہ رفتار (m/s)', 1, 15, 6.5, 0.5, v => state.spd = v);
+
+['اگلا بایاں (FL)', 'اگلا دایاں (FR)', 'پچھلا بایاں (HL)', 'پچھلا دایاں (HR)'].forEach((name, i) => {
+  createSlider($('#g2'), name + ' – لفٹ قوت %', 0, 150, 100, 5, v => wingForce[i] = v);
+  createSlider($('#g2'), name + ' – پچ اینگل °', -35, 35, 0, 1, v => wingPitch[i] = v);
+});
+
+// Mode buttons
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    state.mode = btn.dataset.m;
+    preyGroup.visible = (state.mode === 'prey');
+    $('#target-reticle').style.display = (state.mode === 'prey') ? 'block' : 'none';
+  };
+});
+
+// Mobile On-Screen Touchpads
+document.querySelectorAll('[data-h]').forEach(btn => {
+  const [k, v] = btn.dataset.h.split(':');
+  btn.onpointerdown = e => { e.preventDefault(); input[k] = +v; };
+  btn.onpointerup = btn.onpointerleave = btn.onpointercancel = () => input[k] = 0;
+});
+
+// Sidebar Toggle
+const sidebar = $('#as');
+if (window.innerWidth <= 800) sidebar.classList.add('hide');
+$('#tg').onclick = () => sidebar.classList.toggle('hide');
+
+// Keyboard Listeners
+window.addEventListener('keydown', e => {
+  Keys[e.code] = 1;
+  if (/Arrow|Space/.test(e.code)) e.preventDefault();
+});
+window.addEventListener('keyup', e => { Keys[e.code] = 0; });
+
+// Mouse Drag Camera Orbit
+let isDragging = false;
+R.domElement.addEventListener('pointerdown', () => { isDragging = true; });
+window.addEventListener('pointerup', () => { isDragging = false; });
+window.addEventListener('pointermove', e => {
+  if (isDragging) {
+    state.az -= e.movementX * 0.008;
+    state.el = cl(state.el + e.movementY * 0.008, -0.15, 1.35);
+  }
+});
+R.domElement.addEventListener('wheel', e => {
+  e.preventDefault();
+  state.dist = cl(state.dist * (1 + e.deltaY * 0.001), 2.5, 24);
+}, { passive: false });
+
+// Prey Position Trajectory
+const getPreyPos = t => new THREE.Vector3(
+  12 * Math.sin(0.35 * t + state.ph0),
+  2.8 + 1.6 * Math.sin(0.6 * t),
+  12 * Math.cos(0.28 * t + state.ph0)
+);
+
+// Oscilloscope Canvas Drawer
+const oscCanvas = $('#oscilloscope');
+const oscCtx = oscCanvas.getContext('2d');
+function drawOscilloscope(ph) {
+  const w = oscCanvas.width;
+  const h = oscCanvas.height;
+  oscCtx.clearRect(0, 0, w, h);
+
+  // Background Grid Lines
+  oscCtx.strokeStyle = 'rgba(0, 245, 155, 0.15)';
+  oscCtx.lineWidth = 1;
+  oscCtx.beginPath();
+  oscCtx.moveTo(0, h / 2); oscCtx.lineTo(w, h / 2);
+  oscCtx.stroke();
+
+  // Forewing Sine Wave (Cyan)
+  oscCtx.strokeStyle = '#00d2ff';
+  oscCtx.lineWidth = 1.5;
+  oscCtx.beginPath();
+  for (let x = 0; x < w; x++) {
+    const y = h / 2 + Math.sin(ph + (x / w) * 4 * PI) * (h * 0.38);
+    if (x === 0) oscCtx.moveTo(x, y); else oscCtx.lineTo(x, y);
+  }
+  oscCtx.stroke();
+
+  // Hindwing Sine Wave with Phase Shift (Emerald)
+  oscCtx.strokeStyle = '#00f59b';
+  oscCtx.beginPath();
+  const shift = state.hf * PI / 180;
+  for (let x = 0; x < w; x++) {
+    const y = h / 2 + Math.sin(ph + shift + (x / w) * 4 * PI) * (h * 0.38);
+    if (x === 0) oscCtx.moveTo(x, y); else oscCtx.lineTo(x, y);
+  }
+  oscCtx.stroke();
+}
+
+// ==========================================
+// 9. Main Animation & Physics Loop
+// ==========================================
+let lastTime = performance.now();
+let frameCount = 0;
+let captureFlash = 0;
+
+function animate(currentTime) {
+  requestAnimationFrame(animate);
+  const dt = Math.min((currentTime - lastTime) / 1000, 0.05);
+  lastTime = currentTime;
+  frameCount++;
+
+  const T = currentTime / 1000;
+  const pos = D.position;
+
+  // Steering & Propulsion Logic
+  let turnInput = 0, climbInput = 0, targetVelocity = 0, distToPrey = 0;
+  state.det = false;
+
+  if (state.mode === 'free') {
+    const forwardKey = (Keys.ArrowUp ? 1 : 0) - (Keys.ArrowDown ? 1 : 0) || input.fwd;
+    turnInput = (Keys.ArrowLeft || Keys.KeyA ? 1 : 0) - (Keys.ArrowRight || Keys.KeyD ? 1 : 0) || input.turn;
+    climbInput = ((Keys.KeyW || Keys.Space) ? 1 : 0) - ((Keys.KeyS || Keys.ShiftLeft || Keys.ShiftRight) ? 1 : 0) || input.climb;
+    targetVelocity = forwardKey > 0 ? state.spd : forwardKey < 0 ? -state.spd * 0.45 : 0;
+  } else {
+    // Autonomous STMD Prey Interception Guidance
+    const preyP = getPreyPos(T);
+    const futurePreyP = getPreyPos(T + 0.55); // Lead pursuit vector
+    preyGroup.position.copy(preyP);
+    preyGroup.rotation.y = T * 3.5;
+    preyWingL.rotation.z = Math.sin(T * 45) * 0.6;
+    preyWingR.rotation.z = -Math.sin(T * 45) * 0.6;
+
+    distToPrey = pos.distanceTo(preyP);
+    const targetHeading = Math.atan2(futurePreyP.x - pos.x, futurePreyP.z - pos.z);
+    const headingError = wr(targetHeading - state.yaw);
+
+    turnInput = cl(headingError * 2.2, -1, 1);
+    climbInput = cl((futurePreyP.y - pos.y) * 0.9, -1, 1);
+    targetVelocity = cl(2.5 + distToPrey * 0.55, 2.5, state.spd + 1.5) * (Math.abs(headingError) > 1.1 ? 0.45 : 1);
+
+    // STMD Target Motion Sensor Detection
+    state.det = (distToPrey < 22 && Math.abs(wr(Math.atan2(preyP.x - pos.x, preyP.z - pos.z) - state.yaw)) < 1.4);
+
+    // Target Captured Check
+    if (distToPrey < 0.9) {
+      state.hits++;
+      state.ph0 += 2.5; // Teleport prey to new path
+      captureFlash = 0.65;
+    }
+  }
+
+  // Smooth Aerodynamic Interpolation
+  const smoothK = Math.min(1, dt * 6.5);
+  smooth.turn += (turnInput - smooth.turn) * smoothK;
+  smooth.climb += (climbInput - smooth.climb) * smoothK;
+  state.vel += (targetVelocity - state.vel) * Math.min(1, dt * 2.2);
+
+  // Position & Orientation Updates
+  state.yaw += smooth.turn * 1.8 * dt;
+  pos.x += Math.sin(state.yaw) * state.vel * 0.65 * dt;
+  pos.z += Math.cos(state.yaw) * state.vel * 0.65 * dt;
+  pos.y = cl(pos.y + smooth.climb * 1.7 * dt, 0.45, 12);
+
+  // Flight Arena Boundary
+  const radiusFromCenter = Math.hypot(pos.x, pos.z);
+  if (radiusFromCenter > 52) {
+    pos.x *= 52 / radiusFromCenter;
+    pos.z *= 52 / radiusFromCenter;
+  }
+
+  // Realistic Flight Banking & Pitch Angles
+  state.pitch = state.vel * 0.04 - smooth.climb * 0.28;
+  state.roll = -smooth.turn * 0.55;
+  D.rotation.set(state.pitch, state.yaw, state.roll);
+
+  // Ground Shadow Dynamic Scaling
+  shadowDisk.position.set(pos.x, 0.035, pos.z);
+  shadowDisk.scale.setScalar(1 / (1 + pos.y * 0.22));
+
+  // Flapping Phase Accumulator & Aerodynamic Lift
+  state.ph += 2 * PI * state.f * dt * state.slow;
+  const leftTrim = 1 - smooth.turn * 0.42;
+  const rightTrim = 1 + smooth.turn * 0.42;
+  const totalLift = 1 + smooth.climb * 0.28 + Math.abs(state.vel) * 0.025;
+
+  // 4 Wings Kinematic Motion & Aero Camber
+  Wings.forEach((w, i) => {
+    const isHind = (i >= 2);
+    const wingPh = state.ph + (isHind ? (state.hf * PI / 180) : 0);
+    const differentialForce = (w.side > 0 ? leftTrim : rightTrim);
+    const forceCoeff = (wingForce[i] / 100) * differentialForce * totalLift;
+
+    // Flapping stroke (Z-axis roll)
+    w.pivot.rotation.z = w.side * forceCoeff * (state.amp * PI / 180) * Math.sin(wingPh);
+
+    // Aeroelastic twisting & camber (X-axis pitch)
+    w.innerGroup.rotation.x = (wingPitch[i] * PI / 180) + 0.48 * Math.cos(wingPh) * Math.min(forceCoeff, 1.25);
+
+    // Mechanosensor dots glow with aerodynamic stress
+    w.sensorMat.color.setRGB(0.05 + 0.9 * Math.abs(Math.cos(wingPh)), 0.95, 0.5);
+    const showSensors = $('#k3').checked;
+    w.sensorDots.forEach(d => d.visible = showSensors);
+  });
+
+  // Dynamic Audio Modulation
+  if (audioCtx && isAudioEnabled && humOsc) {
+    const targetFreq = 40 + state.f * 3.2 + Math.abs(state.vel) * 4;
+    humOsc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.05);
+  }
+
+  // Sensory Lighting & Emissive Glow
+  captureFlash = Math.max(0, captureFlash - dt);
+  const showCompound = $('#k1').checked;
+  const isTargetHot = state.det || captureFlash > 0;
+  eyeMaterial.emissive.setRGB(
+    showCompound ? (isTargetHot ? 0.9 : 0.08) : 0,
+    showCompound ? (isTargetHot ? 0.3 : 0.85) : 0,
+    showCompound ? (isTargetHot ? 0.1 : 0.45) : 0
+  );
+  ocelliMaterial.emissiveIntensity = $('#k2').checked ? 1.2 : 0.1;
+  visualCone.visible = $('#k4').checked;
+
+  // Floating Particles Animation
+  const mPositions = motes.geometry.attributes.position.array;
+  for (let i = 1; i < moteCount * 3; i += 3) {
+    mPositions[i] -= dt * 0.25;
+    if (mPositions[i] < 0.2) mPositions[i] = 11.5;
+  }
+  motes.geometry.attributes.position.needsUpdate = true;
+
+  // Camera Orbit & Tracking Calculations
+  state.cy += wr(state.yaw - state.cy) * Math.min(1, dt * 3.2);
+  const camAzimuth = state.cy + PI + state.az;
+
+  // Follow Camera
+  followCam.position.set(
+    pos.x + state.dist * Math.sin(camAzimuth) * Math.cos(state.el),
+    pos.y + state.dist * Math.sin(state.el) + 0.6,
+    pos.z + state.dist * Math.cos(camAzimuth) * Math.cos(state.el)
+  );
+  followCam.lookAt(pos.x, pos.y + 0.3, pos.z);
+
+  // Top-Down Satellite Camera
+  topCam.position.set(pos.x, pos.y + 12, pos.z);
+  topCam.up.set(Math.sin(state.yaw), 0, Math.cos(state.yaw));
+  topCam.lookAt(pos);
+
+  // Side Profile Camera
+  sideCam.position.set(pos.x + Math.cos(state.yaw) * 6.5, pos.y + 0.7, pos.z - Math.sin(state.yaw) * 6.5);
+  sideCam.lookAt(pos);
+
+  // Render Scene from Selected Camera Viewport
+  H.visible = (mainViewIdx !== 1); // Hide head model in eye-cam for clear forward vision
+  D.updateMatrixWorld(true);
+  R.render(S, Viewports[mainViewIdx].cam);
+  H.visible = true;
+
+  // Telemetry HUD & Oscilloscope Update (every 4 frames)
+  if (frameCount % 4 === 0) {
+    $('#hud-spd').textContent = `${state.vel.toFixed(1)} m/s`;
+    $('#hud-hz').textContent = `${state.f} Hz`;
+    $('#hud-alt').textContent = `${pos.y.toFixed(1)} m`;
+    $('#hud-lift').textContent = `${Math.round(totalLift * 100)}%`;
+    $('#hud-mode').textContent = (state.mode === 'free') ? 'دستی پرواز' : 'خودکار شکار';
+    $('#hud-stmd').textContent = (state.mode === 'free') ? 'غیر فعال' : (state.det ? '🎯 شکار مقفل!' : 'تلاش جاری...');
+    $('#hud-stmd').style.color = state.det ? '#00f59b' : '#ffaa00';
+    drawOscilloscope(state.ph);
+  }
+}
+
+// Initial Canvas Layout & Kickoff Loop
+resize();
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
